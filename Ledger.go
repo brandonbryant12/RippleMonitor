@@ -4,7 +4,6 @@ package main
 type Response struct {
 	Result string `json:"result"`
 	Ledger struct {
-		Accepted        string `json:"accepted"`
 		AccountHash     string `json:"account_hash"`
 		CloseFlags      string `json:"close_flags"`
 		CloseTime       int    `json:"close_time"`
@@ -22,7 +21,7 @@ type Response struct {
 			Hash        string `json:"hash"`
 			LedgerIndex int    `json:"ledger_index"`
 			Date        string `json:"date"`
-			Tx          []struct {
+			Tx          struct {
 				TransactionType string `json:"TransactionType"`
 				Flags           int    `json:"Flags"`
 				Sequence        int    `json:"Sequence"`

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/streadway/amqp"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,14 +12,8 @@ import (
 	"time"
 )
 
-var (
-	outfile, _ = os.Create("/data/RippleLedger.log") // update path for your needs
-	l          = log.New(outfile, "", 0)
-)
-
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
 		panic(fmt.Sprintf("%s: %s", msg, err))
 	}
 }
@@ -62,24 +55,24 @@ func main() {
 	conn, err := amqp.Dial(os.Getenv("AMQPConn"))
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
-	l.Printf("Opened amqp connection")
+	fmt.Printf("Opened amqp connection")
 
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
-	l.Printf("opened channel")
+	fmt.Printf("opened channel")
 
 	err = ch.ExchangeDeclare(
-		"stellar", // name
-		"direct",  // type
-		true,      // durable
-		false,     // auto-deleted
-		false,     // internal
-		false,     // no-wait
-		nil,       // arguments
+		"ripple", // name
+		"direct", // type
+		true,     // durable
+		false,    // auto-deleted
+		false,    // internal
+		false,    // no-wait
+		nil,      // arguments
 	)
 	failOnError(err, "Failed to declare an exchange")
-	l.Printf("Exchanged declared\nname:stellar\ntype:direct\ndurable:true\nauto-deleted:false\ninternal:false\nno-wait:false\nargs:nil")
+	fmt.Printf("Exchanged declared\nname:ripple\ntype:direct\ndurable:true\nauto-deleted:false\ninternal:false\nno-wait:false\nargs:nil")
 
 	for {
 		lastLedgerNumber := readLastLedger()
@@ -99,17 +92,21 @@ func main() {
 		}
 		defer resp.Body.Close()
 		content, _ := ioutil.ReadAll(resp.Body)
+		if strings.Contains(string(content), "Rate limit") {
+			time.Sleep(60000 * time.Millisecond)
+			continue
+		}
 		if strings.Contains(string(content), "Resource Missing") {
 			fmt.Printf(fmt.Sprintf("Ledger not found number: %v", strconv.FormatInt(nextLedgerNumber, 10)))
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}
-		fmt.Println((strconv.FormatInt(nextLedgerNumber, 10)))
+		fmt.Println(string(content))
 		writeLastLedgerNumber(strconv.FormatInt(nextLedgerNumber, 10))
 		//		fmt.Println(string(content))
 
 		err = ch.Publish(
-			"stellar",            // exchange
+			"ripple",             // exchange
 			"BlockchainListener", // routing key
 			false,                // mandatory
 			false,                // immediate
@@ -118,7 +115,7 @@ func main() {
 				ContentType:  "text/plain",
 				Body:         []byte(content),
 			})
-		l.Printf(" [x] Sent %s", string(content))
+		//		fmt.Printf(" [x] Sent %s", string(content))
 		failOnError(err, "Failed to publish a message")
 
 	}
